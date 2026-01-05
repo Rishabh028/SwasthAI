@@ -1,6 +1,6 @@
 // Base44 API Client with Real Endpoints
-const APP_ID = '694fd8b61fb0c471c15b8341';
-const API_KEY = '3f3fa91f326742bb8bb2eb444baac1f3';
+const APP_ID = '6952d2f6292d9e983a249381';
+const API_KEY = '4832057683cb4da89022fefc99777816';
 const BASE_URL = `https://app.base44.com/api/apps/${APP_ID}`;
 
 const headers = {
@@ -642,3 +642,557 @@ export const base44 = {
   }
 };
 
+// ==================== DOCTOR APIS ====================
+// Filterable fields: name, specialization, qualification, experience_years, consultation_fee, rating, total_reviews, hospital_name, location, latitude, longitude, languages, available_days, available_slots, profile_image, is_video_consultation, is_clinic_visit, bio, verified
+async function fetchDoctorEntities() {
+    const response = await fetch(`${BASE_URL}/entities/Doctor`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateDoctorEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/Doctor/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== APPOINTMENT APIS ====================
+// Filterable fields: doctor_id, patient_name, patient_email, patient_phone, appointment_date, appointment_time, consultation_type, status, symptoms, notes, doctor_notes, rejection_reason, prescription_url, amount_paid, payment_status, meeting_link, doctor_name, doctor_specialization
+async function fetchAppointmentEntities() {
+    const response = await fetch(`${BASE_URL}/entities/Appointment`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateAppointmentEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/Appointment/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== MEDICINE APIS ====================
+// Filterable fields: name, generic_name, manufacturer, category, therapeutic_class, price, mrp, discount_percent, pack_size, prescription_required, in_stock, image_url, description, usage_instructions, side_effects
+async function fetchMedicineEntities() {
+    const response = await fetch(`${BASE_URL}/entities/Medicine`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateMedicineEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/Medicine/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== MEDICINE ORDER APIS ====================
+// Filterable fields: order_number, items, subtotal, delivery_fee, discount, total_amount, status, payment_status, payment_method, delivery_address, prescription_url, estimated_delivery, tracking_updates
+async function fetchMedicineOrderEntities() {
+    const response = await fetch(`${BASE_URL}/entities/MedicineOrder`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateMedicineOrderEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/MedicineOrder/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== LAB TEST APIS ====================
+// Filterable fields: name, code, category, description, price, mrp, discount_percent, sample_type, fasting_required, fasting_hours, report_time, home_collection, parameters_count, parameters, preparation_instructions, popular
+async function fetchLabTestEntities() {
+    const response = await fetch(`${BASE_URL}/entities/LabTest`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateLabTestEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/LabTest/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== LAB BOOKING APIS ====================
+// Filterable fields: booking_number, tests, patient_name, patient_age, patient_gender, patient_phone, collection_type, collection_address, collection_date, collection_slot, total_amount, payment_status, status, report_url, lab_name
+async function fetchLabBookingEntities() {
+    const response = await fetch(`${BASE_URL}/entities/LabBooking`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateLabBookingEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/LabBooking/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== HEALTH RECORD APIS ====================
+// Filterable fields: title, record_type, record_date, doctor_name, hospital_name, file_url, file_type, notes, tags, is_shared_with_doctor, extracted_data, linked_records, shared_with
+async function fetchHealthRecordEntities() {
+    const response = await fetch(`${BASE_URL}/entities/HealthRecord`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateHealthRecordEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/HealthRecord/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== SYMPTOM SESSION APIS ====================
+// Filterable fields: session_id, symptoms, duration, severity, additional_info, ai_assessment, status, converted_appointment_id
+async function fetchSymptomSessionEntities() {
+    const response = await fetch(`${BASE_URL}/entities/SymptomSession`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateSymptomSessionEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/SymptomSession/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== HEALTH COACH CHAT APIS ====================
+// Filterable fields: title, messages, topic, health_goals, status
+async function fetchHealthCoachChatEntities() {
+    const response = await fetch(`${BASE_URL}/entities/HealthCoachChat`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateHealthCoachChatEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/HealthCoachChat/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== USER PROFILE APIS ====================
+// Filterable fields: phone, date_of_birth, gender, blood_group, height_cm, weight_kg, allergies, chronic_conditions, current_medications, emergency_contact, addresses, abha_id, abha_linked, preferred_language, notification_preferences
+async function fetchUserProfileEntities() {
+    const response = await fetch(`${BASE_URL}/entities/UserProfile`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateUserProfileEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/UserProfile/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== ARTICLE APIS ====================
+// Filterable fields: title, slug, excerpt, content, cover_image, category, tags, author_name, author_image, author_credentials, read_time_minutes, views, likes, is_featured, is_published
+async function fetchArticleEntities() {
+    const response = await fetch(`${BASE_URL}/entities/Article`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateArticleEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/Article/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== DOCTOR PROFILE APIS ====================
+// Filterable fields: doctor_user_email, doctor_listing_id, nmc_registration, verification_status, verification_documents, specialization, qualification, experience_years, consultation_fee, hospital_name, clinic_address, availability, is_video_consultation, is_clinic_visit, languages, bio, profile_image, is_active, is_published, rating, total_reviews
+async function fetchDoctorProfileEntities() {
+    const response = await fetch(`${BASE_URL}/entities/DoctorProfile`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateDoctorProfileEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/DoctorProfile/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== LAB PARTNER APIS ====================
+// Filterable fields: partner_user_email, lab_name, license_number, nabl_accredited, verification_status, verification_documents, lab_address, contact_phone, contact_email, operating_hours, services_offered, home_collection, is_active, is_published, rating, total_reviews, tests_available
+async function fetchLabPartnerEntities() {
+    const response = await fetch(`${BASE_URL}/entities/LabPartner`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateLabPartnerEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/LabPartner/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== NOTIFICATION APIS ====================
+// Filterable fields: recipient_email, title, message, type, is_read, link, priority
+async function fetchNotificationEntities() {
+    const response = await fetch(`${BASE_URL}/entities/Notification`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateNotificationEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/Notification/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== DOCTOR REVIEW APIS ====================
+// Filterable fields: doctor_id, patient_email, patient_name, appointment_id, rating, review, would_recommend
+async function fetchDoctorReviewEntities() {
+    const response = await fetch(`${BASE_URL}/entities/DoctorReview`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateDoctorReviewEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/DoctorReview/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== FORUM POST APIS ====================
+// Filterable fields: title, content, category, author_email, author_name, upvotes, upvoted_by, replies_count, is_pinned, is_locked, status
+async function fetchForumPostEntities() {
+    const response = await fetch(`${BASE_URL}/entities/ForumPost`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateForumPostEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/ForumPost/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== FORUM REPLY APIS ====================
+// Filterable fields: post_id, content, author_email, author_name, upvotes, upvoted_by, is_helpful, status
+async function fetchForumReplyEntities() {
+    const response = await fetch(`${BASE_URL}/entities/ForumReply`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateForumReplyEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/ForumReply/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== ARTICLE COMMENT APIS ====================
+// Filterable fields: article_id, content, author_email, author_name, upvotes, upvoted_by, status
+async function fetchArticleCommentEntities() {
+    const response = await fetch(`${BASE_URL}/entities/ArticleComment`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateArticleCommentEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/ArticleComment/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== HEALTH INSIGHT APIS ====================
+// Filterable fields: user_email, insight_type, title, description, priority, related_records, suggested_tests, is_read, is_dismissed
+async function fetchHealthInsightEntities() {
+    const response = await fetch(`${BASE_URL}/entities/HealthInsight`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateHealthInsightEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/HealthInsight/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== HOSPITAL APIS ====================
+// Filterable fields: name, type, description, address, latitude, longitude, contact, departments, facilities, availability, category, insurance_supported, cashless_available, rating, total_reviews, total_doctors, verified, is_active, is_published, owner_email, registration_id, registration_certificate, trade_license
+async function fetchHospitalEntities() {
+    const response = await fetch(`${BASE_URL}/entities/Hospital`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateHospitalEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/Hospital/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== EMERGENCY REQUEST APIS ====================
+// Filterable fields: request_number, emergency_type, patient_name, patient_age, patient_gender, symptoms, situation_description, location, contact_phone, requester_email, attached_media, status, acknowledged_by, ambulance_eta, nearby_hospitals_notified, priority
+async function fetchEmergencyRequestEntities() {
+    const response = await fetch(`${BASE_URL}/entities/EmergencyRequest`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateEmergencyRequestEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/EmergencyRequest/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== HOSPITAL REGISTRATION APIS ====================
+// Filterable fields: hospital_name, hospital_type, owner_email, hospital_listing_id, address, latitude, longitude, contact_phone, contact_email, departments, total_doctors, has_emergency_services, has_icu, has_ambulance, is_24x7, visiting_hours, insurance_supported, registration_certificate_url, trade_license_url, authorized_rep_id_url, verification_status, rejection_reason
+async function fetchHospitalRegistrationEntities() {
+    const response = await fetch(`${BASE_URL}/entities/HospitalRegistration`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateHospitalRegistrationEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/HospitalRegistration/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== VIDEO CONSULTATION APIS ====================
+// Filterable fields: appointment_id, session_token, room_id, doctor_email, patient_email, status, started_at, ended_at, duration_minutes, participants_joined, connection_quality, call_metadata
+async function fetchVideoConsultationEntities() {
+    const response = await fetch(`${BASE_URL}/entities/VideoConsultation`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updateVideoConsultationEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/VideoConsultation/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== PRESCRIPTION APIS ====================
+// Filterable fields: appointment_id, patient_email, patient_name, doctor_email, doctor_name, doctor_qualification, doctor_registration, diagnosis, symptoms, medicines, tests_recommended, special_instructions, follow_up_date, digital_signature, prescription_number, issued_at, pdf_url, shared_with_pharmacies, status
+async function fetchPrescriptionEntities() {
+    const response = await fetch(`${BASE_URL}/entities/Prescription`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updatePrescriptionEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/Prescription/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== PHARMACY ORDER APIS ====================
+// Filterable fields: prescription_id, patient_email, patient_name, patient_phone, pharmacy_name, pharmacy_id, medicines, total_amount, delivery_address, status, order_number, placed_at, estimated_delivery
+async function fetchPharmacyOrderEntities() {
+    const response = await fetch(`${BASE_URL}/entities/PharmacyOrder`, {
+        headers
+    });
+    const data = await response.json();
+    return data;
+}
+
+async function updatePharmacyOrderEntity(entityId, updateData) {
+    const response = await fetch(`${BASE_URL}/entities/PharmacyOrder/${entityId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(updateData)
+    });
+    const data = await response.json();
+    return data;
+}
+
+// ==================== EXPORT ALL APIS ====================
+export {
+  fetchAPI,
+  fetchDoctorEntities,
+  updateDoctorEntity,
+  fetchAppointmentEntities,
+  updateAppointmentEntity,
+  fetchMedicineEntities,
+  updateMedicineEntity,
+  fetchMedicineOrderEntities,
+  updateMedicineOrderEntity,
+  fetchLabTestEntities,
+  updateLabTestEntity,
+  fetchLabBookingEntities,
+  updateLabBookingEntity,
+  fetchHealthRecordEntities,
+  updateHealthRecordEntity,
+  fetchSymptomSessionEntities,
+  updateSymptomSessionEntity,
+  fetchHealthCoachChatEntities,
+  updateHealthCoachChatEntity,
+  fetchUserProfileEntities,
+  updateUserProfileEntity,
+  fetchArticleEntities,
+  updateArticleEntity,
+  fetchDoctorProfileEntities,
+  updateDoctorProfileEntity,
+  fetchLabPartnerEntities,
+  updateLabPartnerEntity,
+  fetchNotificationEntities,
+  updateNotificationEntity,
+  fetchDoctorReviewEntities,
+  updateDoctorReviewEntity,
+  fetchForumPostEntities,
+  updateForumPostEntity,
+  fetchForumReplyEntities,
+  updateForumReplyEntity,
+  fetchArticleCommentEntities,
+  updateArticleCommentEntity,
+  fetchHealthInsightEntities,
+  updateHealthInsightEntity,
+  fetchHospitalEntities,
+  updateHospitalEntity,
+  fetchEmergencyRequestEntities,
+  updateEmergencyRequestEntity,
+  fetchHospitalRegistrationEntities,
+  updateHospitalRegistrationEntity,
+  fetchVideoConsultationEntities,
+  updateVideoConsultationEntity,
+  fetchPrescriptionEntities,
+  updatePrescriptionEntity,
+  fetchPharmacyOrderEntities,
+  updatePharmacyOrderEntity
+};

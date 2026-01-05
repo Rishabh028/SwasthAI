@@ -1,66 +1,48 @@
-import React, { createContext, useState, useContext } from 'react';
-import { ChevronDown } from 'lucide-react';
+import React from 'react';
+import { cn } from '@/lib/utils';
 
-const SelectContext = createContext();
+const Select = React.forwardRef(({ className, ...props }, ref) => (
+  <select
+    ref={ref}
+    className={cn(
+      'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 appearance-none',
+      className
+    )}
+    {...props}
+  />
+));
 
-export const Select = ({ children, onValueChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedValue, setSelectedValue] = useState('');
+Select.displayName = 'Select';
 
-  const handleValueChange = (value) => {
-    setSelectedValue(value);
-    setIsOpen(false);
-    onValueChange?.(value);
-  };
+const SelectContent = React.forwardRef(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn('absolute top-full left-0 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50', className)} {...props} />
+));
 
-  return (
-    <SelectContext.Provider value={{ isOpen, setIsOpen, selectedValue, handleValueChange }}>
-      <div className="relative">
-        {children}
-      </div>
-    </SelectContext.Provider>
-  );
-};
+SelectContent.displayName = 'SelectContent';
 
-export const SelectTrigger = ({ children, className = '' }) => {
-  const { isOpen, setIsOpen } = useContext(SelectContext);
-  return (
-    <button
-      onClick={() => setIsOpen(!isOpen)}
-      className={`w-full px-4 py-2 border border-gray-300 rounded-lg flex items-center justify-between bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
-    >
-      {children}
-      <ChevronDown size={16} className="text-gray-600" />
-    </button>
-  );
-};
+const SelectItem = React.forwardRef(({ className, ...props }, ref) => (
+  <option ref={ref} className={cn('', className)} {...props} />
+));
 
-export const SelectValue = ({ placeholder = '' }) => {
-  const { selectedValue } = useContext(SelectContext);
-  return <span>{selectedValue || placeholder}</span>;
-};
+SelectItem.displayName = 'SelectItem';
 
-export const SelectContent = ({ children, className = '' }) => {
-  const { isOpen } = useContext(SelectContext);
-  
-  if (!isOpen) return null;
-  
-  return (
-    <div className={`absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto ${className}`}>
-      {children}
-    </div>
-  );
-};
+const SelectTrigger = React.forwardRef(({ className, children, ...props }, ref) => (
+  <button
+    ref={ref}
+    className={cn(
+      'flex h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
+      className
+    )}
+    {...props}
+  >
+    {children}
+  </button>
+));
 
-export const SelectItem = ({ value, children, className = '' }) => {
-  const { handleValueChange } = useContext(SelectContext);
-  
-  return (
-    <button
-      onClick={() => handleValueChange(value)}
-      className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${className}`}
-    >
-      {children}
-    </button>
-  );
-};
+SelectTrigger.displayName = 'SelectTrigger';
+
+const SelectValue = ({ placeholder = 'Select...' }) => <span className="text-gray-400">{placeholder}</span>;
+
+SelectValue.displayName = 'SelectValue';
+
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue };

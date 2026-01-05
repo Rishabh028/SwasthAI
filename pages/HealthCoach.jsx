@@ -1,326 +1,451 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import { 
-  ArrowLeft, Send, Sparkles, Heart, Calendar, 
-  Pill, Activity, TrendingUp, Clock, AlertCircle
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Heart,
+  Send,
+  Plus,
+  MessageCircle,
+  Sparkles,
+  Apple,
+  Dumbbell,
+  Brain,
+  Moon,
+  Pill,
+  Loader2,
+  ChevronLeft,
+  MoreVertical,
+  Trash2
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import ReactMarkdown from 'react-markdown';
+import PageTransition from '@/components/ui/PageTransition';
 
-const quickQuestions = [
-  'What should I eat for better heart health?',
-  'How can I improve my sleep?',
-  'Give me tips for managing stress',
-  'How much water should I drink daily?'
+const topics = [
+  { id: 'nutrition', label: 'Nutrition', icon: Apple, color: 'bg-green-100 text-green-600' },
+  { id: 'fitness', label: 'Fitness', icon: Dumbbell, color: 'bg-blue-100 text-blue-600' },
+  { id: 'mental_health', label: 'Mental Health', icon: Brain, color: 'bg-purple-100 text-purple-600' },
+  { id: 'sleep', label: 'Sleep', icon: Moon, color: 'bg-indigo-100 text-indigo-600' },
+  { id: 'medication', label: 'Medication', icon: Pill, color: 'bg-rose-100 text-rose-600' },
+  { id: 'general', label: 'General', icon: Heart, color: 'bg-teal-100 text-teal-600' },
+];
+
+const suggestedQuestions = [
+  "What's a healthy breakfast for weight loss?",
+  "How can I improve my sleep quality?",
+  "What exercises can I do at home?",
+  "How to manage stress and anxiety?",
+  "What foods boost immunity?",
+  "How much water should I drink daily?"
 ];
 
 export default function HealthCoach() {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [message, setMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
-  const { data: profile } = useQuery({
-    queryKey: ['healthProfile'],
-    queryFn: async () => {
-      const user = await base44.auth.me();
-      const profiles = await base44.entities.HealthProfile.filter(
-        { created_by: user.email }, 
-        '-created_date', 
-        1
-      );
-      return profiles[0];
+  const { data: chats = [], isLoading: chatsLoading } = useQuery({
+    queryKey: ['healthCoachChats'],
+    queryFn: () => base44.entities.HealthCoachChat.list('-created_date', 50),
+  });
+
+  const createChat = useMutation({
+    mutationFn: (data) => base44.entities.HealthCoachChat.create(data),
+    onSuccess: (newChat) => {
+      queryClient.invalidateQueries({ queryKey: ['healthCoachChats'] });
+      setSelectedChat(newChat);
     }
   });
 
-  const { data: appointments = [] } = useQuery({
-    queryKey: ['recentAppointments'],
-    queryFn: () => base44.entities.Appointment.list('-created_date', 5)
+  const updateChat = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.HealthCoachChat.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['healthCoachChats'] });
+    }
   });
 
-  const { data: records = [] } = useQuery({
-    queryKey: ['recentRecords'],
-    queryFn: () => base44.entities.HealthRecord.list('-created_date', 5)
+  const deleteChat = useMutation({
+    mutationFn: (id) => base44.entities.HealthCoachChat.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['healthCoachChats'] });
+      setSelectedChat(null);
+    }
   });
 
-  const { data: symptomChecks = [] } = useQuery({
-    queryKey: ['recentSymptomChecks'],
-    queryFn: () => base44.entities.SymptomCheck.list('-created_date', 3)
-  });
-
-  useEffect(() => {
-    // Welcome message
-    if (messages.length === 0 && profile) {
-      const welcomeMessage = {
-        role: 'assistant',
-        content: `Hello! 👋 I'm your AI Health Coach. I'm here to provide personalized health advice based on your profile and medical history.\n\nI can help you with:\n- Health tips and preventive care\n- Understanding your symptoms\n- Medication reminders\n- Lifestyle recommendations\n\nHow can I help you today?`
-      };
-      setMessages([welcomeMessage]);
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const buildContext = () => {
-    let context = `User Profile:
-Age: ${profile?.age || 'Not specified'}
-Gender: ${profile?.gender || 'Not specified'}
-Blood Group: ${profile?.blood_group || 'Not specified'}
-City: ${profile?.city || 'Not specified'}
-Existing Conditions: ${profile?.existing_conditions?.join(', ') || 'None'}
-Allergies: ${profile?.allergies?.join(', ') || 'None'}
-
-Recent Health Activity:`;
-
-    if (appointments.length > 0) {
-      context += `\n\nRecent Appointments:`;
-      appointments.slice(0, 3).forEach(apt => {
-        context += `\n- ${apt.doctor_specialty} appointment on ${apt.date}`;
-        if (apt.symptoms) context += ` for ${apt.symptoms}`;
-      });
-    }
-
-    if (symptomChecks.length > 0) {
-      context += `\n\nRecent Symptom Checks:`;
-      symptomChecks.forEach(check => {
-        context += `\n- ${check.symptoms_text} (Severity: ${check.severity || 'unknown'})`;
-      });
-    }
-
-    return context;
-  };
-
-  const handleSend = async (question = input) => {
-    if (!question.trim()) return;
-
-    const userMessage = { role: 'user', content: question };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      const context = buildContext();
-      const conversationHistory = messages.slice(-5).map(m => 
-        `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`
-      ).join('\n\n');
-
-      const prompt = `You are an AI Health Coach providing personalized health advice. Be empathetic, clear, and actionable.
-
-${context}
-
-Previous conversation:
-${conversationHistory}
-
-User's question: ${question}
-
-Provide helpful, personalized health advice based on the user's profile and history. If suggesting medical action, always recommend consulting a doctor. Be concise but comprehensive.`;
-
+  const sendMessage = useMutation({
+    mutationFn: async ({ chatId, userMessage, messages }) => {
       const response = await base44.integrations.Core.InvokeLLM({
-        prompt,
-        add_context_from_internet: false
-      });
+        prompt: `You are SwasthAI Health Coach, a friendly and knowledgeable AI health assistant focused on Indian users. You provide personalized health advice on nutrition, fitness, mental wellness, and lifestyle.
 
-      const aiMessage = { 
-        role: 'assistant', 
-        content: response 
-      };
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error:', error);
-      const errorMessage = {
-        role: 'assistant',
-        content: "I'm sorry, I encountered an error. Please try again."
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
+Guidelines:
+- Be warm, supportive, and encouraging
+- Provide practical, actionable advice
+- Consider Indian dietary habits and preferences when discussing nutrition
+- Always remind users to consult healthcare professionals for medical issues
+- Use simple language, avoid medical jargon
+- Include specific examples and tips
+
+Previous conversation context:
+${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
+
+User's new message: ${userMessage}
+
+Provide a helpful, conversational response.`,
+      });
+      return response;
     }
+  });
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const getHealthInsights = () => {
-    const insights = [];
+  useEffect(() => {
+    scrollToBottom();
+  }, [selectedChat?.messages]);
 
-    if (profile?.existing_conditions?.length > 0) {
-      insights.push({
-        icon: Heart,
-        color: 'text-red-500 bg-red-50',
-        title: 'Chronic Conditions',
-        value: profile.existing_conditions.join(', ')
+  const handleSendMessage = async () => {
+    if (!message.trim()) return;
+
+    const userMessage = message.trim();
+    setMessage('');
+    setIsTyping(true);
+
+    if (!selectedChat) {
+      // Create new chat
+      const newChat = await createChat.mutateAsync({
+        title: userMessage.slice(0, 50),
+        topic: 'general',
+        messages: [{ role: 'user', content: userMessage, timestamp: new Date().toISOString() }],
+        status: 'active'
       });
+
+      const response = await sendMessage.mutateAsync({
+        chatId: newChat.id,
+        userMessage,
+        messages: []
+      });
+
+      await updateChat.mutateAsync({
+        id: newChat.id,
+        data: {
+          messages: [
+            { role: 'user', content: userMessage, timestamp: new Date().toISOString() },
+            { role: 'assistant', content: response, timestamp: new Date().toISOString() }
+          ]
+        }
+      });
+
+      setSelectedChat({
+        ...newChat,
+        messages: [
+          { role: 'user', content: userMessage, timestamp: new Date().toISOString() },
+          { role: 'assistant', content: response, timestamp: new Date().toISOString() }
+        ]
+      });
+    } else {
+      // Update existing chat
+      const updatedMessages = [
+        ...(selectedChat.messages || []),
+        { role: 'user', content: userMessage, timestamp: new Date().toISOString() }
+      ];
+
+      setSelectedChat(prev => ({ ...prev, messages: updatedMessages }));
+
+      const response = await sendMessage.mutateAsync({
+        chatId: selectedChat.id,
+        userMessage,
+        messages: selectedChat.messages || []
+      });
+
+      const finalMessages = [
+        ...updatedMessages,
+        { role: 'assistant', content: response, timestamp: new Date().toISOString() }
+      ];
+
+      await updateChat.mutateAsync({
+        id: selectedChat.id,
+        data: { messages: finalMessages }
+      });
+
+      setSelectedChat(prev => ({ ...prev, messages: finalMessages }));
     }
 
-    if (appointments.length > 0) {
-      const upcomingCount = appointments.filter(a => 
-        a.status === 'scheduled' && new Date(a.date) > new Date()
-      ).length;
-      if (upcomingCount > 0) {
-        insights.push({
-          icon: Calendar,
-          color: 'text-blue-500 bg-blue-50',
-          title: 'Upcoming Appointments',
-          value: `${upcomingCount} scheduled`
-        });
-      }
-    }
-
-    if (symptomChecks.length > 0) {
-      const recentCheck = symptomChecks[0];
-      if (recentCheck.completed) {
-        insights.push({
-          icon: Activity,
-          color: 'text-purple-500 bg-purple-50',
-          title: 'Last Symptom Check',
-          value: `${recentCheck.severity || 'Unknown'} severity`
-        });
-      }
-    }
-
-    return insights;
+    setIsTyping(false);
   };
 
-  const insights = getHealthInsights();
+  const handleQuestionClick = (question) => {
+    setMessage(question);
+    inputRef.current?.focus();
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 pt-4 pb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Link to={createPageUrl('Home')}>
-            <button className="p-2 rounded-xl bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors">
-              <ArrowLeft size={20} />
-            </button>
-          </Link>
-          <div>
-            <h1 className="text-lg font-bold flex items-center gap-2">
-              <Sparkles size={20} />
-              AI Health Coach
-            </h1>
-            <p className="text-purple-100 text-xs">Your personal health assistant</p>
-          </div>
-        </div>
-
-        {/* Health Insights */}
-        {insights.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {insights.map((insight, i) => (
-              <div
-                key={i}
-                className="bg-white/10 backdrop-blur-sm rounded-xl p-3 min-w-[160px] border border-white/20"
-              >
-                <div className={`w-8 h-8 rounded-lg ${insight.color} flex items-center justify-center mb-2`}>
-                  <insight.icon size={16} />
-                </div>
-                <p className="text-xs text-purple-100 mb-1">{insight.title}</p>
-                <p className="text-sm font-semibold">{insight.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 px-4 py-4 space-y-4 overflow-y-auto">
-        <AnimatePresence>
-          {messages.map((message, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white shadow-sm border border-gray-100'
-                }`}
-              >
-                {message.role === 'assistant' ? (
-                  <ReactMarkdown
-                    className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                    components={{
-                      p: ({ children }) => <p className="my-2 leading-relaxed text-gray-700">{children}</p>,
-                      ul: ({ children }) => <ul className="my-2 ml-4 list-disc text-gray-700">{children}</ul>,
-                      li: ({ children }) => <li className="my-1">{children}</li>,
-                      strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                    }}
-                  >
-                    {message.content}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-sm">{message.content}</p>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex justify-start"
-          >
-            <div className="bg-white shadow-sm border border-gray-100 rounded-2xl px-4 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-                <span className="text-xs text-gray-500">Thinking...</span>
-              </div>
+    <PageTransition className="h-screen bg-gray-50 flex">
+      {/* Sidebar - Chat History */}
+      <div className={`w-80 bg-white border-r border-gray-200 flex flex-col ${
+        selectedChat ? 'hidden md:flex' : 'flex'
+      }`}>
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center">
+              <Heart className="w-5 h-5 text-white" />
             </div>
-          </motion.div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Quick Questions */}
-      {messages.length <= 1 && (
-        <div className="px-4 pb-4 overflow-x-auto scrollbar-hide bg-white border-t border-gray-100">
-          <div className="flex gap-2 pb-2">
-            {quickQuestions.map((question, i) => (
-              <button
-                key={i}
-                onClick={() => handleSend(question)}
-                className="flex-shrink-0 px-4 py-2 bg-white rounded-xl text-sm text-gray-700 border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all"
-              >
-                {question}
-              </button>
-            ))}
+            <div>
+              <h1 className="font-bold text-gray-900">Health Coach</h1>
+              <p className="text-xs text-gray-500">Your AI wellness companion</p>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="bg-white border-t border-gray-100 p-4">
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSend()}
-            placeholder="Ask about your health..."
-            className="flex-1 h-12 rounded-xl border-gray-200"
-            disabled={isLoading}
-          />
           <Button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || isLoading}
-            className="h-12 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 whitespace-nowrap flex items-center justify-center"
+            onClick={() => setSelectedChat(null)}
+            className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
           >
-            <Send size={18} />
+            <Plus className="w-4 h-4 mr-2" />
+            New Conversation
           </Button>
         </div>
+
+        {/* Chat List */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {chatsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : chats.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              No conversations yet
+            </div>
+          ) : (
+            chats.map((chat) => (
+              <motion.button
+                key={chat.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => setSelectedChat(chat)}
+                className={`w-full text-left p-3 rounded-xl transition-colors ${
+                  selectedChat?.id === chat.id
+                    ? 'bg-rose-50 border border-rose-200'
+                    : 'hover:bg-gray-50 border border-transparent'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <MessageCircle className={`w-5 h-5 flex-shrink-0 ${
+                    selectedChat?.id === chat.id ? 'text-rose-500' : 'text-gray-400'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate text-sm">
+                      {chat.title || 'New Conversation'}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {chat.messages?.length || 0} messages
+                    </p>
+                  </div>
+                </div>
+              </motion.button>
+            ))
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {selectedChat ? (
+          <>
+            {/* Chat Header */}
+            <div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4">
+              <button
+                onClick={() => setSelectedChat(null)}
+                className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex-1">
+                <h2 className="font-semibold text-gray-900 truncate">
+                  {selectedChat.title || 'New Conversation'}
+                </h2>
+                <p className="text-xs text-gray-500">
+                  {selectedChat.messages?.length || 0} messages
+                </p>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => deleteChat.mutate(selectedChat.id)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Chat
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <AnimatePresence>
+                {selectedChat.messages?.map((msg, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-[80%] ${
+                      msg.role === 'user'
+                        ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-2xl rounded-br-md'
+                        : 'bg-white border border-gray-200 rounded-2xl rounded-bl-md'
+                    } p-4 shadow-sm`}>
+                      {msg.role === 'assistant' ? (
+                        <ReactMarkdown className="prose prose-sm max-w-none text-gray-700">
+                          {msg.content}
+                        </ReactMarkdown>
+                      ) : (
+                        <p>{msg.content}</p>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {isTyping && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex justify-start"
+                >
+                  <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md p-4 shadow-sm">
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <motion.div
+                          key={i}
+                          animate={{ y: [0, -5, 0] }}
+                          transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                          className="w-2 h-2 bg-gray-400 rounded-full"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="bg-white border-t border-gray-200 p-4">
+              <div className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Ask your health coach..."
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!message.trim() || sendMessage.isPending}
+                  className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
+                >
+                  {sendMessage.isPending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Welcome Screen */
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-20 h-20 rounded-3xl bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center mb-6 shadow-lg shadow-rose-500/25"
+            >
+              <Sparkles className="w-10 h-10 text-white" />
+            </motion.div>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Welcome to Health Coach
+            </h2>
+            <p className="text-gray-500 max-w-md mb-8">
+              Your personal AI wellness companion. Ask me anything about nutrition, 
+              fitness, mental health, sleep, and more!
+            </p>
+
+            {/* Topics */}
+            <div className="flex flex-wrap justify-center gap-2 mb-8">
+              {topics.map((topic) => (
+                <Badge
+                  key={topic.id}
+                  className={`${topic.color} px-3 py-1.5 cursor-pointer hover:opacity-80 transition-opacity`}
+                  onClick={() => handleQuestionClick(`Tell me about ${topic.label.toLowerCase()}`)}
+                >
+                  <topic.icon className="w-3 h-3 mr-1" />
+                  {topic.label}
+                </Badge>
+              ))}
+            </div>
+
+            {/* Suggested Questions */}
+            <div className="w-full max-w-lg">
+              <p className="text-sm text-gray-500 mb-3">Try asking:</p>
+              <div className="grid gap-2">
+                {suggestedQuestions.map((question, index) => (
+                  <motion.button
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    onClick={() => handleQuestionClick(question)}
+                    className="text-left p-3 bg-white rounded-xl border border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-colors text-sm text-gray-700"
+                  >
+                    {question}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* Input */}
+            <div className="w-full max-w-lg mt-8">
+              <div className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Ask your health coach..."
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!message.trim() || sendMessage.isPending}
+                  className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600"
+                >
+                  <Send className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </PageTransition>
   );
 }

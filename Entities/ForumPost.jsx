@@ -1,4 +1,4 @@
-const SavedArticleSchema = {
+export default {
   "name": "ForumPost",
   "type": "object",
   "properties": {
@@ -12,23 +12,33 @@ const SavedArticleSchema = {
       "type": "string",
       "enum": [
         "general",
-        "nutrition",
+        "mental_health",
         "fitness",
-        "mental-health",
-        "wellness",
-        "chronic-conditions",
-        "preventive-care"
+        "nutrition",
+        "diseases",
+        "lifestyle",
+        "women_health",
+        "child_health"
       ]
+    },
+    "author_email": {
+      "type": "string"
+    },
+    "author_name": {
+      "type": "string"
     },
     "upvotes": {
       "type": "number",
       "default": 0
     },
-    "views": {
-      "type": "number",
-      "default": 0
+    "upvoted_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
     },
-    "reply_count": {
+    "replies_count": {
       "type": "number",
       "default": 0
     },
@@ -40,14 +50,21 @@ const SavedArticleSchema = {
       "type": "boolean",
       "default": false
     },
-    "author_name": {
-      "type": "string"
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "flagged",
+        "removed"
+      ],
+      "default": "active"
     }
   },
   "required": [
     "title",
     "content",
-    "category"
+    "author_email",
+    "author_name"
   ]
 };
-export default SavedArticleSchema;
+

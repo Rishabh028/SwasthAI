@@ -1,24 +1,18 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
-export const Checkbox = React.forwardRef(({
-  disabled = false,
-  className = '',
-  ...props
-}, ref) => {
-  return (
-    <input
-      ref={ref}
-      type="checkbox"
-      disabled={disabled}
-      className={`
-        w-4 h-4 border border-gray-300 rounded
-        cursor-pointer accent-blue-600
-        disabled:cursor-not-allowed disabled:opacity-50
-        ${className}
-      `}
-      {...props}
-    />
-  );
-});
+const Checkbox = React.forwardRef(({ className, ...props }, ref) => (
+  <input
+    type="checkbox"
+    ref={ref}
+    className={cn(
+      'h-4 w-4 rounded border border-gray-300 bg-white text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+      className
+    )}
+    {...props}
+  />
+));
 
 Checkbox.displayName = 'Checkbox';
+
+export { Checkbox };

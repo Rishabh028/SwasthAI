@@ -1,238 +1,240 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ThumbsUp, MessageCircle, Share2, Flag, Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { base44 } from '@/api/base44Client';
+import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
+import { format } from 'date-fns';
+import {
+  ArrowLeft,
+  ThumbsUp,
+  MessageCircle,
+  Flag,
+  Pin,
+  Lock,
+  Send,
+  Award
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import PageTransition from '@/components/ui/PageTransition';
+import { toast } from 'react-hot-toast';
 
 export default function ForumPost() {
-  const [user, setUser] = useState(null);
-  const [reply, setReply] = useState('');
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const postId = new URLSearchParams(window.location.search).get('id');
+  const [user, setUser] = useState(null);
+  const [replyContent, setReplyContent] = useState('');
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const postId = urlParams.get('id');
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    const loadUser = async () => {
+      try {
+        const isAuth = await base44.auth.isAuthenticated();
+        if (isAuth) {
+          setUser(await base44.auth.me());
+        }
+      } catch (e) {
+        console.log('Not authenticated');
+      }
+    };
+    loadUser();
   }, []);
 
   const { data: post } = useQuery({
     queryKey: ['forumPost', postId],
     queryFn: async () => {
-      const posts = await base44.entities.ForumPost.filter({ id: postId }, '-created_date', 1);
-      if (posts[0]) {
-        // Increment view count
-        await base44.entities.ForumPost.update(postId, { views: (posts[0].views || 0) + 1 });
-      }
+      const posts = await base44.entities.ForumPost.filter({ id: postId });
       return posts[0];
     },
-    enabled: !!postId && !!user
+    enabled: !!postId
   });
 
   const { data: replies = [] } = useQuery({
     queryKey: ['forumReplies', postId],
-    queryFn: () => base44.entities.ForumReply.filter({ post_id: postId }, '-created_date', 100),
-    enabled: !!postId && !!user
+    queryFn: () => base44.entities.ForumReply.filter({ post_id: postId, status: 'active' }, '-created_date'),
+    enabled: !!postId
   });
 
-  const { data: myUpvotes = [] } = useQuery({
-    queryKey: ['myUpvotes'],
-    queryFn: () => base44.entities.PostUpvote.filter({ user_email: user?.email }, '-created_date', 100),
-    enabled: !!user
-  });
-
-  const postReply = useMutation({
-    mutationFn: () => base44.entities.ForumReply.create({
-      post_id: postId,
-      content: reply,
-      author_name: user?.full_name || 'Anonymous'
-    }),
+  const createReply = useMutation({
+    mutationFn: (data) => base44.entities.ForumReply.create(data),
     onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ['forumReplies', postId] });
-      await base44.entities.ForumPost.update(postId, { reply_count: (post?.reply_count || 0) + 1 });
-      queryClient.invalidateQueries({ queryKey: ['forumPost', postId] });
-      setReply('');
+      await base44.entities.ForumPost.update(postId, {
+        replies_count: (post.replies_count || 0) + 1
+      });
+      queryClient.invalidateQueries({ queryKey: ['forumReplies'] });
+      queryClient.invalidateQueries({ queryKey: ['forumPost'] });
+      setReplyContent('');
+      toast.success('Reply posted');
     }
   });
 
-  const upvotePost = useMutation({
-    mutationFn: async () => {
-      const alreadyUpvoted = myUpvotes.some(u => u.post_id === postId);
-      if (alreadyUpvoted) {
-        const upvote = myUpvotes.find(u => u.post_id === postId);
-        await base44.entities.PostUpvote.delete(upvote.id);
-        await base44.entities.ForumPost.update(postId, { upvotes: (post?.upvotes || 0) - 1 });
-      } else {
-        await base44.entities.PostUpvote.create({ post_id: postId, user_email: user.email });
-        await base44.entities.ForumPost.update(postId, { upvotes: (post?.upvotes || 0) + 1 });
-      }
+  const upvoteReply = useMutation({
+    mutationFn: async ({ replyId, currentUpvotes, upvotedBy }) => {
+      const hasUpvoted = upvotedBy.includes(user.email);
+      return base44.entities.ForumReply.update(replyId, {
+        upvotes: hasUpvoted ? currentUpvotes - 1 : currentUpvotes + 1,
+        upvoted_by: hasUpvoted 
+          ? upvotedBy.filter(email => email !== user.email)
+          : [...upvotedBy, user.email]
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['forumPost', postId] });
-      queryClient.invalidateQueries({ queryKey: ['myUpvotes'] });
+      queryClient.invalidateQueries({ queryKey: ['forumReplies'] });
     }
   });
 
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="animate-spin text-gray-400" size={32} />
-      </div>
-    );
-  }
+  const handleReplySubmit = (e) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error('Please login to reply');
+      return;
+    }
+    if (!replyContent.trim()) {
+      toast.error('Please enter a reply');
+      return;
+    }
+    createReply.mutate({
+      post_id: postId,
+      content: replyContent,
+      author_email: user.email,
+      author_name: user.full_name || user.email.split('@')[0]
+    });
+  };
 
-  const hasUpvoted = myUpvotes.some(u => u.post_id === postId);
+  if (!post) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-4 z-10">
-        <div className="flex items-center justify-between">
-          <Link to={createPageUrl('HealthForum')}>
-            <button className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors">
-              <ArrowLeft size={20} className="text-gray-600" />
-            </button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-              <Share2 size={20} className="text-gray-600" />
-            </button>
-            <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-              <Flag size={20} className="text-gray-600" />
-            </button>
-          </div>
-        </div>
-      </div>
+    <PageTransition className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4 max-w-4xl">
+        <Button variant="ghost" onClick={() => navigate(createPageUrl('Forum'))} className="mb-6">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Forum
+        </Button>
 
-      {/* Post Content */}
-      <div className="px-4 py-6">
-        {/* Category Badge */}
-        <span className="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium mb-4 capitalize">
-          {post.category?.replace('-', ' ')}
-        </span>
-
-        {/* Title */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h1>
-
-        {/* Author Info */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-400 flex items-center justify-center">
-            <span className="text-white font-medium">
-              {post.author_name?.charAt(0) || 'A'}
-            </span>
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{post.author_name}</p>
-            <p className="text-sm text-gray-500">
-              {format(new Date(post.created_date), 'MMM d, yyyy')} • {post.views || 0} views
-            </p>
-          </div>
-        </div>
-
-        {/* Post Body */}
-        <div className="prose prose-sm max-w-none mb-6">
-          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-            {post.content}
-          </p>
-        </div>
-
-        {/* Upvote Button */}
-        <button
-          onClick={() => upvotePost.mutate()}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
-            hasUpvoted
-              ? 'bg-green-100 text-green-700'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
+        {/* Main Post */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 mb-6"
         >
-          <ThumbsUp size={18} className={hasUpvoted ? 'fill-current' : ''} />
-          <span className="font-medium">{post.upvotes || 0} helpful</span>
-        </button>
-
-        {/* Replies Section */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className="flex items-center gap-2 mb-6">
-            <MessageCircle size={20} className="text-gray-600" />
-            <h2 className="text-lg font-bold text-gray-900">Replies ({replies.length})</h2>
+          <div className="flex items-start gap-2 mb-4">
+            {post.is_pinned && <Pin className="w-5 h-5 text-teal-500 mt-1" />}
+            <h1 className="text-2xl font-bold text-gray-900 flex-1">{post.title}</h1>
+            {post.is_locked && <Lock className="w-5 h-5 text-gray-400 mt-1" />}
           </div>
 
-          {/* Reply Form */}
-          {user && !post.is_locked && (
-            <div className="mb-6">
+          <div className="flex items-center gap-4 mb-6 text-sm text-gray-500">
+            <span className="font-medium">{post.author_name}</span>
+            <span>•</span>
+            <span>{format(new Date(post.created_date), 'PPP')}</span>
+            <Badge variant="secondary" className="capitalize">
+              {post.category?.replace(/_/g, ' ')}
+            </Badge>
+          </div>
+
+          <div className="prose prose-gray max-w-none mb-6">
+            <p className="text-gray-700 whitespace-pre-wrap">{post.content}</p>
+          </div>
+
+          <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-2 text-gray-600">
+              <ThumbsUp className="w-5 h-5" />
+              <span className="font-medium">{post.upvotes || 0} upvotes</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <MessageCircle className="w-5 h-5" />
+              <span className="font-medium">{replies.length} replies</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Reply Form */}
+        {user && !post.is_locked && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6"
+          >
+            <h3 className="font-semibold text-gray-900 mb-4">Your Reply</h3>
+            <form onSubmit={handleReplySubmit}>
               <Textarea
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                placeholder="Share your thoughts or advice..."
-                className="rounded-xl mb-3"
-                rows={3}
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Share your thoughts..."
+                className="mb-4 min-h-[100px]"
               />
-              <Button
-                onClick={() => postReply.mutate()}
-                disabled={!reply.trim() || postReply.isPending}
-                className="rounded-xl bg-green-600 hover:bg-green-700"
-              >
-                {postReply.isPending ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin mr-2" />
-                    Posting...
-                  </>
-                ) : (
-                  'Post Reply'
-                )}
+              <Button type="submit" disabled={createReply.isPending} className="bg-teal-500 hover:bg-teal-600">
+                <Send className="w-4 h-4 mr-2" />
+                {createReply.isPending ? 'Posting...' : 'Post Reply'}
               </Button>
-            </div>
-          )}
+            </form>
+          </motion.div>
+        )}
 
-          {post.is_locked && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-              <p className="text-sm text-yellow-800">
-                This discussion has been locked by moderators.
-              </p>
-            </div>
-          )}
-
-          {/* Replies List */}
-          <div className="space-y-4">
-            {replies.map((r, index) => (
-              <motion.div
-                key={r.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className={`bg-white rounded-xl p-4 border ${
-                  r.is_helpful ? 'border-green-200 bg-green-50/30' : 'border-gray-100'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-medium text-sm">
-                      {r.author_name?.charAt(0) || 'A'}
+        {/* Replies */}
+        <div className="space-y-4">
+          <h3 className="font-semibold text-gray-900">Replies ({replies.length})</h3>
+          {replies.map((reply, index) => (
+            <motion.div
+              key={reply.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="font-medium text-gray-900">{reply.author_name}</span>
+                    <span className="text-sm text-gray-500">
+                      {format(new Date(reply.created_date), 'PPP')}
                     </span>
+                    {reply.is_helpful && (
+                      <Badge className="bg-amber-100 text-amber-700">
+                        <Award className="w-3 h-3 mr-1" />
+                        Helpful
+                      </Badge>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium text-gray-900 text-sm">{r.author_name}</p>
-                      {r.is_helpful && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                          Helpful
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-700 text-sm mb-2 whitespace-pre-wrap">{r.content}</p>
-                    <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-600">
-                      <ThumbsUp size={12} />
-                      <span>{r.upvotes || 0}</span>
-                    </button>
-                  </div>
+                  <p className="text-gray-700 whitespace-pre-wrap">{reply.content}</p>
                 </div>
-              </motion.div>
-            ))}
-          </div>
+                <button
+                  onClick={() => {
+                    if (user) {
+                      upvoteReply.mutate({
+                        replyId: reply.id,
+                        currentUpvotes: reply.upvotes || 0,
+                        upvotedBy: reply.upvoted_by || []
+                      });
+                    } else {
+                      toast.error('Please login to upvote');
+                    }
+                  }}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+                    reply.upvoted_by?.includes(user?.email)
+                      ? 'text-teal-600 bg-teal-50'
+                      : 'text-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  <ThumbsUp className="w-5 h-5" />
+                  <span className="text-sm font-medium">{reply.upvotes || 0}</span>
+                </button>
+              </div>
+            </motion.div>
+          ))}
+
+          {replies.length === 0 && (
+            <div className="text-center py-12 bg-white rounded-2xl">
+              <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No replies yet. Be the first to respond!</p>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

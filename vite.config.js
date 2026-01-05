@@ -7,17 +7,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
-      '@pages': path.resolve(__dirname, './pages'),
-      '@components': path.resolve(__dirname, './Components'),
-      '@entities': path.resolve(__dirname, './Entities'),
-      '@api': path.resolve(__dirname, './api'),
-      '@lib': path.resolve(__dirname, './lib'),
+      '@/pages': path.resolve(__dirname, './pages'),
+      '@/components': path.resolve(__dirname, './Components'),
+      '@/Components': path.resolve(__dirname, './Components'),
+      '@/Entities': path.resolve(__dirname, './Entities'),
+      '@/api': path.resolve(__dirname, './api'),
+      '@/lib': path.resolve(__dirname, './lib'),
     },
   },
   server: {
     port: 5173,
-    host: true,
-    open: true,
+    host: '0.0.0.0',
+    open: false,
     strictPort: false,
     cors: true,
   },
@@ -30,7 +31,7 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'query-vendor': ['@tanstack/react-query'],
-          'ui-vendor': ['framer-motion', 'lucide-react', 'tailwindcss'],
+          'ui-vendor': ['framer-motion', 'lucide-react'],
           'map-vendor': ['leaflet', 'react-leaflet'],
         }
       }

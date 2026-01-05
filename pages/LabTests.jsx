@@ -1,370 +1,423 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  ArrowLeft, TestTube, Search, Home, Building2, Clock, 
-  MapPin, Calendar, ChevronRight, Check, Plus, Minus, ClipboardList
-} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
+import {
+  Search,
+  TestTube,
+  Droplet,
+  Clock,
+  Home,
+  BadgeCheck,
+  ChevronRight,
+  Heart,
+  Activity,
+  Thermometer,
+  Beaker,
+  ShoppingCart,
+  X,
+  Plus
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { format, addDays } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import PageTransition from '@/components/ui/PageTransition';
+import { SkeletonList } from '@/components/ui/SkeletonLoader';
+import { toast } from 'react-hot-toast';
 
-const popularTests = [
-  { name: 'Complete Blood Count (CBC)', price: 350, includes: ['RBC', 'WBC', 'Platelets', 'Hemoglobin'] },
-  { name: 'Thyroid Profile (T3, T4, TSH)', price: 600, includes: ['T3', 'T4', 'TSH'] },
-  { name: 'Lipid Profile', price: 450, includes: ['Cholesterol', 'Triglycerides', 'HDL', 'LDL'] },
-  { name: 'Liver Function Test (LFT)', price: 550, includes: ['SGOT', 'SGPT', 'Bilirubin'] },
-  { name: 'Kidney Function Test (KFT)', price: 650, includes: ['Creatinine', 'Urea', 'Uric Acid'] },
-  { name: 'Blood Sugar Fasting', price: 80, includes: ['Glucose'] },
-  { name: 'HbA1c (Diabetes)', price: 450, includes: ['Glycated Hemoglobin'] },
-  { name: 'Vitamin D', price: 900, includes: ['25-OH Vitamin D'] }
+const categoryIcons = {
+  blood: Droplet,
+  cardiac: Heart,
+  diabetes: Activity,
+  thyroid: Thermometer,
+  full_body: Beaker,
+  default: TestTube
+};
+
+const categories = [
+  { value: 'all', label: 'All Tests' },
+  { value: 'blood', label: 'Blood Tests' },
+  { value: 'diabetes', label: 'Diabetes' },
+  { value: 'thyroid', label: 'Thyroid' },
+  { value: 'cardiac', label: 'Cardiac' },
+  { value: 'full_body', label: 'Full Body Checkup' },
+  { value: 'vitamin', label: 'Vitamins' },
+  { value: 'liver', label: 'Liver' },
+  { value: 'kidney', label: 'Kidney' },
 ];
 
-const healthPackages = [
-  { 
-    name: 'Basic Health Checkup', 
-    price: 999, 
-    originalPrice: 1500,
-    tests: ['CBC', 'Blood Sugar', 'Lipid Profile', 'Liver Function', 'Kidney Function'],
-    popular: true
+const popularPackages = [
+  {
+    id: 'fullbody',
+    name: 'Full Body Checkup',
+    tests: 80,
+    price: 999,
+    mrp: 2500,
+    icon: Beaker,
+    color: 'from-blue-500 to-cyan-500'
   },
-  { 
-    name: 'Diabetes Care Package', 
-    price: 1299, 
-    originalPrice: 2000,
-    tests: ['HbA1c', 'Fasting Sugar', 'Post-Prandial Sugar', 'Lipid Profile', 'KFT']
+  {
+    id: 'diabetes',
+    name: 'Diabetes Screening',
+    tests: 15,
+    price: 499,
+    mrp: 1200,
+    icon: Activity,
+    color: 'from-purple-500 to-pink-500'
   },
-  { 
-    name: 'Full Body Checkup', 
-    price: 2499, 
-    originalPrice: 4000,
-    tests: ['75+ Tests', 'All Vital Organs', 'Thyroid', 'Vitamins', 'Diabetes']
+  {
+    id: 'heart',
+    name: 'Heart Health Package',
+    tests: 20,
+    price: 1299,
+    mrp: 3000,
+    icon: Heart,
+    color: 'from-rose-500 to-red-500'
+  },
+  {
+    id: 'thyroid',
+    name: 'Thyroid Profile',
+    tests: 8,
+    price: 399,
+    mrp: 900,
+    icon: Thermometer,
+    color: 'from-amber-500 to-orange-500'
   }
 ];
 
 export default function LabTests() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTests, setSelectedTests] = useState([]);
-  const [bookingType, setBookingType] = useState('home'); // home or lab
-  const [showBookingModal, setShowBookingModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('all');
+  const [cart, setCart] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
-  const { data: bookings = [] } = useQuery({
-    queryKey: ['labBookings'],
-    queryFn: () => base44.entities.LabBooking.list('-created_date', 5)
+  useEffect(() => {
+    const savedCart = localStorage.getItem('swasthai_lab_cart');
+    if (savedCart) {
+      setCart(JSON.parse(savedCart));
+    }
+  }, []);
+
+  const { data: tests = [], isLoading } = useQuery({
+    queryKey: ['labTests'],
+    queryFn: () => base44.entities.LabTest.list('-popular', 100),
   });
 
-  const toggleTest = (test) => {
-    const exists = selectedTests.find(t => t.name === test.name);
-    if (exists) {
-      setSelectedTests(selectedTests.filter(t => t.name !== test.name));
-    } else {
-      setSelectedTests([...selectedTests, test]);
+  const filteredTests = useMemo(() => {
+    return tests.filter(test => {
+      if (search) {
+        const searchLower = search.toLowerCase();
+        const matchesSearch = 
+          test.name?.toLowerCase().includes(searchLower) ||
+          test.code?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
+      if (category !== 'all' && test.category !== category) return false;
+      return true;
+    });
+  }, [tests, search, category]);
+
+  const addToCart = (test) => {
+    if (cart.find(item => item.id === test.id)) {
+      toast.info('Test already in cart');
+      return;
     }
+    const updatedCart = [...cart, test];
+    setCart(updatedCart);
+    localStorage.setItem('swasthai_lab_cart', JSON.stringify(updatedCart));
+    toast.success(`${test.name} added to cart`);
   };
 
-  const selectPackage = (pkg) => {
-    setSelectedTests([{ name: pkg.name, price: pkg.price, isPackage: true }]);
-    setShowBookingModal(true);
+  const removeFromCart = (testId) => {
+    const updatedCart = cart.filter(item => item.id !== testId);
+    setCart(updatedCart);
+    localStorage.setItem('swasthai_lab_cart', JSON.stringify(updatedCart));
   };
 
-  const totalAmount = selectedTests.reduce((sum, test) => sum + test.price, 0);
-
-  const availableDates = Array.from({ length: 5 }, (_, i) => {
-    const date = addDays(new Date(), i + 1);
-    return {
-      date: format(date, 'yyyy-MM-dd'),
-      day: format(date, 'EEE'),
-      dayNum: format(date, 'd'),
-      month: format(date, 'MMM')
-    };
-  });
-
-  const timeSlots = ['6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM'];
-
-  const createBooking = useMutation({
-    mutationFn: () => base44.entities.LabBooking.create({
-      lab_name: 'SwasthAI Diagnostics',
-      tests: selectedTests.map(t => ({ name: t.name, price: t.price })),
-      total_amount: totalAmount,
-      booking_type: bookingType,
-      date: selectedDate,
-      time_slot: selectedSlot,
-      status: 'booked'
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['labBookings'] });
-      setShowBookingModal(false);
-      setSelectedTests([]);
-    }
-  });
+  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
-      {/* Header */}
-      <div className="bg-white px-4 pt-4 pb-4">
-        <div className="flex items-center gap-4 mb-4">
-          <Link to={createPageUrl('Home')}>
-            <button className="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors">
-              <ArrowLeft size={20} className="text-gray-600" />
-            </button>
-          </Link>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Book Lab Tests</h1>
-            <p className="text-xs text-gray-500">Home collection available</p>
+    <PageTransition className="min-h-screen bg-gray-50">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-amber-500 to-orange-500 py-16 md:py-20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center text-white"
+          >
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-2xl mb-6">
+              <TestTube className="w-8 h-8" />
+            </div>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
+              Lab Tests & Health Checkups
+            </h1>
+            <p className="text-amber-100 text-lg max-w-2xl mx-auto">
+              Book diagnostic tests with free home sample collection. 
+              Get reports within 24-48 hours.
+            </p>
+          </motion.div>
+
+          {/* Features */}
+          <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            {[
+              { icon: Home, label: 'Home Collection', desc: 'Free sample pickup' },
+              { icon: Clock, label: 'Fast Reports', desc: 'Within 24-48 hours' },
+              { icon: BadgeCheck, label: 'NABL Labs', desc: 'Certified partners' },
+              { icon: TestTube, label: '500+ Tests', desc: 'Available' },
+            ].map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center"
+              >
+                <feature.icon className="w-6 h-6 mx-auto mb-2" />
+                <p className="font-medium text-sm">{feature.label}</p>
+                <p className="text-xs text-amber-100">{feature.desc}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
+      </section>
 
-        {/* Search */}
-        <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tests..."
-            className="pl-10 rounded-xl border-gray-200"
-          />
-        </div>
-
-        {/* Collection Type */}
-        <div className="flex gap-3 mt-4">
-          <button
-            onClick={() => setBookingType('home')}
-            className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center gap-2 ${
-              bookingType === 'home' ? 'border-pink-500 bg-pink-50' : 'border-gray-200'
-            }`}
-          >
-            <Home size={20} className={bookingType === 'home' ? 'text-pink-600' : 'text-gray-400'} />
-            <div className="text-left">
-              <p className={`font-medium text-sm ${bookingType === 'home' ? 'text-pink-700' : 'text-gray-700'}`}>
-                Home Collection
-              </p>
-              <p className="text-xs text-gray-500">Sample pickup at home</p>
-            </div>
-          </button>
-          <button
-            onClick={() => setBookingType('lab')}
-            className={`flex-1 p-3 rounded-xl border-2 transition-all flex items-center gap-2 ${
-              bookingType === 'lab' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-            }`}
-          >
-            <Building2 size={20} className={bookingType === 'lab' ? 'text-blue-600' : 'text-gray-400'} />
-            <div className="text-left">
-              <p className={`font-medium text-sm ${bookingType === 'lab' ? 'text-blue-700' : 'text-gray-700'}`}>
-                Visit Lab
-              </p>
-              <p className="text-xs text-gray-500">Walk-in to lab center</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Health Packages */}
-      <div className="px-4 py-4">
-        <h2 className="font-bold text-gray-900 mb-3">Health Packages</h2>
-        <div className="space-y-3">
-          {healthPackages.map((pkg, index) => (
+      {/* Popular Packages */}
+      <section className="container mx-auto px-4 -mt-8 relative z-10 mb-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Popular Health Packages</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {popularPackages.map((pkg, index) => (
             <motion.div
-              key={pkg.name}
+              key={pkg.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`bg-white rounded-2xl p-4 border ${
-                pkg.popular ? 'border-pink-200 ring-1 ring-pink-100' : 'border-gray-100'
-              }`}
+              className={`bg-gradient-to-br ${pkg.color} rounded-2xl p-5 text-white cursor-pointer hover:scale-105 transition-transform`}
+              onClick={() => addToCart({ id: pkg.id, name: pkg.name, price: pkg.price })}
             >
-              {pkg.popular && (
-                <span className="text-xs font-medium px-2 py-0.5 bg-pink-100 text-pink-700 rounded-full">
-                  Most Popular
-                </span>
-              )}
-              <div className="flex items-start justify-between mt-2">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">{pkg.tests.join(' • ')}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-gray-900">₹{pkg.price}</p>
-                  <p className="text-xs text-gray-400 line-through">₹{pkg.originalPrice}</p>
-                </div>
+              <pkg.icon className="w-8 h-8 mb-3 opacity-80" />
+              <h3 className="font-bold mb-1">{pkg.name}</h3>
+              <p className="text-sm opacity-80 mb-3">{pkg.tests} tests included</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-bold">₹{pkg.price}</span>
+                <span className="text-sm line-through opacity-60">₹{pkg.mrp}</span>
               </div>
-              <Button
-                onClick={() => selectPackage(pkg)}
-                className="w-full mt-3 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700"
-              >
-                Book Now
-              </Button>
             </motion.div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Individual Tests */}
-      <div className="px-4">
-        <h2 className="font-bold text-gray-900 mb-3">Popular Tests</h2>
-        <div className="space-y-2">
-          {popularTests.map((test, index) => {
-            const isSelected = selectedTests.some(t => t.name === test.name);
-            return (
-              <motion.button
-                key={test.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                onClick={() => toggleTest(test)}
-                className={`w-full bg-white rounded-xl p-4 border transition-all text-left ${
-                  isSelected ? 'border-pink-500 bg-pink-50' : 'border-gray-100'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      isSelected ? 'bg-pink-500' : 'bg-purple-50'
-                    }`}>
-                      {isSelected ? (
-                        <Check size={18} className="text-white" />
-                      ) : (
-                        <TestTube size={18} className="text-purple-500" />
+      {/* Search & Filter */}
+      <section className="container mx-auto px-4 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search tests..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 h-12 rounded-xl"
+              />
+            </div>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="w-full md:w-48 h-12 rounded-xl">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </section>
+
+      {/* Tests Grid */}
+      <section className="container mx-auto px-4 pb-32">
+        {isLoading ? (
+          <SkeletonList count={6} />
+        ) : filteredTests.length === 0 ? (
+          <div className="text-center py-16">
+            <TestTube className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No tests found</h3>
+            <p className="text-gray-500">Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {filteredTests.map((test, index) => {
+              const IconComponent = categoryIcons[test.category] || categoryIcons.default;
+              return (
+                <motion.div
+                  key={test.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all p-5"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                      <IconComponent className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{test.name}</h3>
+                          {test.code && (
+                            <p className="text-sm text-gray-500">Code: {test.code}</p>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xl font-bold text-gray-900">₹{test.price}</p>
+                          {test.mrp > test.price && (
+                            <p className="text-sm text-gray-400 line-through">₹{test.mrp}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
+                        {test.parameters_count && (
+                          <span className="flex items-center gap-1">
+                            <Beaker className="w-4 h-4" />
+                            {test.parameters_count} parameters
+                          </span>
+                        )}
+                        {test.report_time && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            {test.report_time}
+                          </span>
+                        )}
+                        {test.fasting_required && (
+                          <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                            Fasting Required
+                          </Badge>
+                        )}
+                        {test.home_collection && (
+                          <Badge variant="secondary" className="bg-green-50 text-green-700">
+                            <Home className="w-3 h-3 mr-1" />
+                            Home Collection
+                          </Badge>
+                        )}
+                      </div>
+
+                      {test.description && (
+                        <p className="text-sm text-gray-500 mt-2 line-clamp-2">
+                          {test.description}
+                        </p>
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900 text-sm">{test.name}</h3>
-                      <p className="text-xs text-gray-500">Includes: {test.includes.join(', ')}</p>
-                    </div>
-                  </div>
-                  <span className="font-bold text-gray-900">₹{test.price}</span>
-                </div>
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Cart Footer */}
-      <AnimatePresence>
-        {selectedTests.length > 0 && !showBookingModal && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 shadow-lg"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">{selectedTests.length} tests selected</p>
-                <p className="text-xl font-bold text-gray-900">₹{totalAmount}</p>
-              </div>
-              <Button 
-                onClick={() => setShowBookingModal(true)}
-                className="h-12 px-8 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700"
-              >
-                Continue
-                <ChevronRight size={18} className="ml-1" />
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Booking Modal */}
-      <AnimatePresence>
-        {showBookingModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end"
-            onClick={() => setShowBookingModal(false)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              className="bg-white rounded-t-3xl p-6 w-full max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Select Date & Time</h2>
-              
-              {/* Date Selection */}
-              <div className="mb-6">
-                <p className="text-sm text-gray-600 mb-3">Choose date</p>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {availableDates.map((d) => (
-                    <button
-                      key={d.date}
-                      onClick={() => setSelectedDate(d.date)}
-                      className={`flex-shrink-0 w-16 p-3 rounded-xl text-center transition-all ${
-                        selectedDate === d.date
-                          ? 'bg-pink-600 text-white'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
+                    <Button
+                      onClick={() => addToCart(test)}
+                      className="bg-amber-500 hover:bg-amber-600 flex-shrink-0"
                     >
-                      <p className="text-xs font-medium">{d.day}</p>
-                      <p className="text-xl font-bold">{d.dayNum}</p>
-                      <p className="text-xs">{d.month}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Time Slots */}
-              {selectedDate && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-6"
-                >
-                  <p className="text-sm text-gray-600 mb-3">Choose time slot</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {timeSlots.map((slot) => (
-                      <button
-                        key={slot}
-                        onClick={() => setSelectedSlot(slot)}
-                        className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
-                          selectedSlot === slot
-                            ? 'bg-pink-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {slot}
-                      </button>
-                    ))}
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
                   </div>
                 </motion.div>
-              )}
-
-              {/* Summary */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-600">Tests</span>
-                  <span className="font-medium">{selectedTests.length} selected</span>
-                </div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-600">Collection</span>
-                  <span className="font-medium capitalize">{bookingType}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-200">
-                  <span>Total</span>
-                  <span className="text-pink-600">₹{totalAmount}</span>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => createBooking.mutate()}
-                disabled={!selectedDate || !selectedSlot || createBooking.isPending}
-                className="w-full h-14 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 text-lg font-semibold"
-              >
-                {createBooking.isPending ? 'Booking...' : 'Confirm Booking'}
-              </Button>
-            </motion.div>
-          </motion.div>
+              );
+            })}
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+      </section>
+
+      {/* Floating Cart Button */}
+      {cart.length > 0 && (
+        <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+          <SheetTrigger asChild>
+            <motion.button
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-6 py-4 rounded-2xl shadow-lg shadow-amber-500/30 flex items-center gap-4 z-50"
+            >
+              <div className="relative">
+                <ShoppingCart className="w-6 h-6" />
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-amber-500 text-xs font-bold rounded-full flex items-center justify-center">
+                  {cart.length}
+                </span>
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-medium">{cart.length} tests</p>
+                <p className="text-lg font-bold">₹{cartTotal}</p>
+              </div>
+              <span className="bg-white/20 px-3 py-1 rounded-lg text-sm">
+                View Cart →
+              </span>
+            </motion.button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:w-96">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5" />
+                Your Cart ({cart.length} tests)
+              </SheetTitle>
+            </SheetHeader>
+
+            <div className="mt-6 flex-1 overflow-y-auto">
+              <div className="space-y-3">
+                {cart.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <TestTube className="w-8 h-8 text-amber-500" />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm text-gray-900 line-clamp-1">
+                        {item.name}
+                      </h4>
+                      <p className="text-sm font-bold text-gray-900">₹{item.price}</p>
+                    </div>
+                    <button
+                      onClick={() => removeFromCart(item.id)}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 border-t pt-4 space-y-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Subtotal</span>
+                <span className="font-medium">₹{cartTotal}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Home Collection</span>
+                <span className="font-medium text-green-600">FREE</span>
+              </div>
+              <div className="flex justify-between text-lg font-bold">
+                <span>Total</span>
+                <span>₹{cartTotal}</span>
+              </div>
+              <Link to={createPageUrl('BookLabTest')}>
+                <Button className="w-full bg-amber-500 hover:bg-amber-600">
+                  Book Now
+                </Button>
+              </Link>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+    </PageTransition>
   );
 }

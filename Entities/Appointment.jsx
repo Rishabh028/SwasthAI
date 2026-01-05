@@ -1,27 +1,89 @@
-// Appointment entity schema
-export const AppointmentSchema = {
-  name: 'Appointment',
-  type: 'object',
-  properties: {
-    id: { type: 'string' },
-    doctor_id: { type: 'string' },
-    doctor_name: { type: 'string' },
-    doctor_specialty: { type: 'string' },
-    doctor_photo: { type: 'string' },
-    appointment_type: { type: 'string', enum: ['online', 'offline'] },
-    date: { type: 'string', format: 'date' },
-    time: { type: 'string' },
-    status: { type: 'string', enum: ['scheduled', 'completed', 'cancelled', 'in_progress'], default: 'scheduled' },
-    symptoms: { type: 'string' },
-    symptom_check_id: { type: 'string' },
-    consultation_notes: { type: 'string' },
-    prescription_id: { type: 'string' },
-    clinic_address: { type: 'string' },
-    fee: { type: 'number' },
-    payment_status: { type: 'string', enum: ['pending', 'paid', 'refunded'], default: 'pending' },
-    created_date: { type: 'string', format: 'date-time' }
+export default {
+  "name": "Appointment",
+  "type": "object",
+  "properties": {
+    "doctor_id": {
+      "type": "string",
+      "description": "Reference to Doctor"
+    },
+    "patient_name": {
+      "type": "string"
+    },
+    "patient_email": {
+      "type": "string"
+    },
+    "patient_phone": {
+      "type": "string"
+    },
+    "appointment_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "appointment_time": {
+      "type": "string"
+    },
+    "consultation_type": {
+      "type": "string",
+      "enum": [
+        "video",
+        "clinic",
+        "chat"
+      ],
+      "default": "video"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed",
+        "rejected",
+        "completed",
+        "cancelled",
+        "no_show"
+      ],
+      "default": "pending"
+    },
+    "symptoms": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "doctor_notes": {
+      "type": "string"
+    },
+    "rejection_reason": {
+      "type": "string"
+    },
+    "prescription_url": {
+      "type": "string"
+    },
+    "amount_paid": {
+      "type": "number"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "refunded"
+      ],
+      "default": "pending"
+    },
+    "meeting_link": {
+      "type": "string"
+    },
+    "doctor_name": {
+      "type": "string"
+    },
+    "doctor_specialization": {
+      "type": "string"
+    }
   },
-  required: ['doctor_id', 'date', 'time']
+  "required": [
+    "doctor_id",
+    "patient_name",
+    "appointment_date",
+    "appointment_time"
+  ]
 };
-
-export default AppointmentSchema;
